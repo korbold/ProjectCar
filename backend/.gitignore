@@ -1,0 +1,27 @@
+# Maven
+target/
+pom.xml.tag
+pom.releaseBackup
+*.jar
+*.war
+*.ear
+*.class
+
+# IDE
+.idea/
+*.iml
+.classpath
+.project
+.settings/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+logs/
+
+# Local config (optional, root may already ignore .env)
+.env
+.env.local
+application-local.properties

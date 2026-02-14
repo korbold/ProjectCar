@@ -1,0 +1,47 @@
+# Production / pre-production stack. Set DB_PASSWORD in .env before running.
+# Usage: docker compose -f docker-compose.prod.yml up -d
+
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    restart: always
+    environment:
+      POSTGRES_DB: ibarra_db
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    # Optional: do not expose port on host in prod (only backend connects)
+    # ports: ["5432:5432"]
+
+  backend:
+    image: danny/ibarra-backend:latest
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: always
+    depends_on:
+      - db
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/ibarra_db
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "8080:8080"
+
+  admin-web:
+    image: ibarra-admin-web:latest
+    build:
+      context: ./admin-web
+      dockerfile: Dockerfile
+      args:
+        # API base URL as seen by the browser (change for your domain)
+        VITE_API_URL: http://localhost:8080/api
+    restart: always
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+
+volumes:
+  pgdata:
