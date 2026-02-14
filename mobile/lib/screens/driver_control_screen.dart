@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -67,11 +68,34 @@ class _DriverControlScreenState extends State<DriverControlScreen> {
     const interval = Duration(seconds: 10);
     Position? lastPosition;
 
-    _positionSubscription = Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
-    ).listen((Position position) {
-      lastPosition = position;
-    });
+    const LocationSettings locationSettings = LocationSettings(
+      accuracy: LocationAccuracy.high,
+      distanceFilter: 10,
+    );
+
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      _positionSubscription = Geolocator.getPositionStream(
+        locationSettings: AndroidSettings(
+          accuracy: LocationAccuracy.high,
+          distanceFilter: 10,
+          forceLocationManager: true,
+          intervalDuration: const Duration(seconds: 10),
+          foregroundNotificationConfig: const ForegroundNotificationConfig(
+            notificationTitle: 'Ibarra Abastecida',
+            notificationText: 'Compartiendo ubicación del camión en tiempo real',
+            enableWifiLock: true,
+          ),
+        ),
+      ).listen((Position position) {
+        lastPosition = position;
+      });
+    } else {
+      _positionSubscription = Geolocator.getPositionStream(
+        locationSettings: locationSettings,
+      ).listen((Position position) {
+        lastPosition = position;
+      });
+    }
 
     _sendTimer = Timer.periodic(interval, (_) async {
       if (lastPosition == null || _camionId == null) return;
