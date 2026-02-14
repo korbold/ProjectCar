@@ -1,17 +1,19 @@
-import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:stomp_dart_client/stomp_dart_client.dart';
 
 import '../../application/use_cases/camion/get_camiones_use_case.dart';
 import '../../core/entities/camion.dart';
 import '../../infrastructure/http/api_client.dart';
+import '../../infrastructure/http/api_config.dart';
 import '../providers/auth_provider.dart';
 import '../providers/repository_providers.dart';
 
-/// Full-screen map. Polls GET /camiones every 30 seconds and updates markers.
+/// Full-screen map. Initial load from GET /camiones; real-time updates via WebSocket (STOMP).
 class ClientMapScreen extends ConsumerStatefulWidget {
   const ClientMapScreen({super.key});
 
@@ -22,11 +24,10 @@ class ClientMapScreen extends ConsumerStatefulWidget {
 class _ClientMapScreenState extends ConsumerState<ClientMapScreen> {
   static const _ibarraCenter = LatLng(-0.3517, -78.1223);
 
-  bool _timerStarted = false;
   List<Camion> _camiones = [];
-  Timer? _timer;
   bool _loading = true;
   String? _error;
+  StompClient? _stompClient;
 
   Future<void> _fetchCamiones() async {
     try {
@@ -56,22 +57,57 @@ class _ClientMapScreenState extends ConsumerState<ClientMapScreen> {
     }
   }
 
+  void _mergeCamionFromMessage(StompFrame frame) {
+    try {
+      final body = frame.body;
+      if (body == null || body.isEmpty) return;
+      final json = jsonDecode(body) as Map<String, dynamic>?;
+      if (json == null) return;
+      final camion = Camion.fromJson(json);
+      if (!mounted) return;
+      setState(() {
+        final idx = _camiones.indexWhere((c) => c.id == camion.id);
+        if (idx >= 0) {
+          final next = List<Camion>.from(_camiones);
+          next[idx] = camion;
+          _camiones = next;
+        } else {
+          _camiones = [..._camiones, camion];
+        }
+      });
+    } catch (_) {
+      // ignore malformed messages
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _fetchCamiones());
+    StompClient? clientRef;
+    clientRef = StompClient(
+      config: StompConfig(
+        url: backendWsUrl,
+        onConnect: (frame) {
+          clientRef?.subscribe(
+            destination: '/topic/camiones.ubicacion',
+            callback: _mergeCamionFromMessage,
+          );
+        },
+      ),
+    );
+    clientRef.activate();
+    _stompClient = clientRef;
+  }
+
   @override
   void dispose() {
-    _timer?.cancel();
+    _stompClient?.deactivate();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (!_timerStarted) {
-      _timerStarted = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _fetchCamiones();
-        _timer = Timer.periodic(const Duration(seconds: 30), (_) => _fetchCamiones());
-      });
-    }
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Mapa'),

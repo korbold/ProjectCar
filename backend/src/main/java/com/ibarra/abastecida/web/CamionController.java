@@ -16,6 +16,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
@@ -35,6 +36,7 @@ public class CamionController {
     private final ListCamionesUseCase listCamionesUseCase;
     private final GetMyCamionUseCase getMyCamionUseCase;
     private final UpdateUbicacionUseCase updateUbicacionUseCase;
+    private final SimpMessagingTemplate messagingTemplate;
 
     @Operation(summary = "List all trucks", description = "Returns all trucks with location (for map). Public, no auth.")
     @ApiResponse(responseCode = "200", description = "List of trucks", content = @Content(schema = @Schema(implementation = CamionResponse.class)))
@@ -73,7 +75,15 @@ public class CamionController {
             @PathVariable UUID id,
             @Valid @RequestBody UpdateUbicacionRequest body) {
         boolean updated = updateUbicacionUseCase.execute(id, body.getLat(), body.getLng());
-        return updated ? ResponseEntity.noContent().build() : ResponseEntity.notFound().build();
+        if (!updated) {
+            return ResponseEntity.notFound().build();
+        }
+        listCamionesUseCase.execute().stream()
+                .filter(c -> c.getId().equals(id))
+                .findFirst()
+                .map(this::toResponse)
+                .ifPresent(response -> messagingTemplate.convertAndSend("/topic/camiones.ubicacion", response));
+        return ResponseEntity.noContent().build();
     }
 
     private CamionResponse toResponse(Camion c) {

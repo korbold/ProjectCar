@@ -1,10 +1,17 @@
 import { useState, useEffect, useCallback } from 'react'
+import { Client } from '@stomp/stompjs'
 import type { Truck } from '../../domain/entities'
 import { getTrucksUseCase } from '../../application/container'
+import { getWebSocketUrl } from '../../infrastructure/ws-url'
+
+function mergeTruckById(prev: Truck[], truck: Truck): Truck[] {
+  const rest = prev.filter((t) => t.id !== truck.id)
+  return [...rest, truck]
+}
 
 /**
- * Hook that fetches trucks from the application layer (GetTrucksUseCase).
- * Refreshes every 5 seconds for live map updates.
+ * Hook that fetches trucks and subscribes to real-time location updates via WebSocket (STOMP).
+ * Initial load from GET /camiones; updates pushed on /topic/camiones.ubicacion.
  */
 export function useTrucks(): {
   trucks: Truck[]
@@ -42,9 +49,29 @@ export function useTrucks(): {
 
   useEffect(() => {
     fetchTrucks()
-    const interval = setInterval(fetchTrucks, 5000)
-    return () => clearInterval(interval)
   }, [fetchTrucks])
+
+  useEffect(() => {
+    const client = new Client({
+      brokerURL: getWebSocketUrl(),
+    })
+    client.onConnect = () => {
+      client.subscribe('/topic/camiones.ubicacion', (message) => {
+        try {
+          const body = JSON.parse(message.body) as Truck
+          if (body?.id) {
+            setTrucks((prev) => mergeTruckById(prev, body))
+          }
+        } catch {
+          // ignore malformed messages
+        }
+      })
+    }
+    client.activate()
+    return () => {
+      void client.deactivate()
+    }
+  }, [])
 
   return { trucks, loading, error, refetch: fetchTrucks }
 }

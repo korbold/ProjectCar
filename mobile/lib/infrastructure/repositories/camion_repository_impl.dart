@@ -2,12 +2,13 @@ import '../../core/entities/camion.dart';
 import '../../core/repositories/auth_repository.dart';
 import '../../core/repositories/camion_repository.dart';
 import '../http/api_client.dart';
+import '../http/api_config.dart';
 
 /// Implements CamionRepository using ApiClient. Token comes from AuthRepository.
 class CamionRepositoryImpl implements CamionRepository {
-  CamionRepositoryImpl(AuthRepository authRepo, {String baseUrl = 'http://10.0.2.2:8080/api'})
+  CamionRepositoryImpl(AuthRepository authRepo, {String? baseUrl})
       : _client = ApiClient(
-          baseUrl: baseUrl,
+          baseUrl: baseUrl ?? backendApiUrl,
           getToken: () async {
             final state = await authRepo.getAuthState();
             return state?.token;
