@@ -1,56 +1,61 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'screens/client_map_screen.dart';
-import 'screens/driver_control_screen.dart';
-import 'screens/login_screen.dart';
-import 'services/auth_service.dart';
+import 'presentation/providers/auth_provider.dart';
+import 'presentation/screens/client_map_screen.dart';
+import 'presentation/screens/driver_control_screen.dart';
+import 'presentation/screens/login_screen.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(
+    const ProviderScope(
+      child: MyApp(),
+    ),
+  );
 }
 
-/// Root app: resolves initial role via FutureBuilder and shows Login, ClientMap, or DriverControl.
-class MyApp extends StatefulWidget {
+/// Root app: watches auth state and shows Login, ClientMap, or DriverControl.
+class MyApp extends ConsumerWidget {
   const MyApp({super.key});
 
   @override
-  State<MyApp> createState() => _MyAppState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final authAsync = ref.watch(authNotifierProvider);
 
-class _MyAppState extends State<MyApp> {
-  Future<String?> _roleFuture = AuthService.create().then((a) => a.getStoredRole());
-
-  void _refreshRole() {
-    setState(() {
-      _roleFuture = AuthService.create().then((a) => a.getStoredRole());
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Ibarra Abastecida',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,
       ),
-      home: FutureBuilder<String?>(
-        future: _roleFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Scaffold(
-              body: Center(child: CircularProgressIndicator()),
-            );
+      home: authAsync.when(
+        data: (auth) {
+          if (auth == null || auth.role.isEmpty) {
+            return const LoginScreen();
           }
-          final role = snapshot.data;
-          if (role == null || role.isEmpty) {
-            return LoginScreen(onLoggedIn: _refreshRole);
+          if (auth.role == 'DRIVER') {
+            return const DriverControlScreen();
           }
-          if (role == 'DRIVER') {
-            return DriverControlScreen(onLogout: _refreshRole);
-          }
-          return ClientMapScreen(onLogout: _refreshRole);
+          return const ClientMapScreen();
         },
+        loading: () => const Scaffold(
+          body: Center(child: CircularProgressIndicator()),
+        ),
+        error: (err, _) => Scaffold(
+          body: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text('Error: $err', textAlign: TextAlign.center),
+                const SizedBox(height: 16),
+                FilledButton(
+                  onPressed: () => ref.invalidate(authNotifierProvider),
+                  child: const Text('Reintentar'),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

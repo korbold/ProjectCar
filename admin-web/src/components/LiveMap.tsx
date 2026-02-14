@@ -1,6 +1,6 @@
 import { MapContainer, Marker, Popup, TileLayer } from 'react-leaflet'
 import L from 'leaflet'
-import type { Truck } from '../types'
+import type { Truck } from '../domain/entities'
 
 const IBARRA_CENTER: [number, number] = [-0.3517, -78.1223]
 

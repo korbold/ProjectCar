@@ -1,31 +1,13 @@
-import { useState, useEffect } from 'react'
 import Typography from '@mui/material/Typography'
 import Box from '@mui/material/Box'
 import { LiveMap } from '../components/LiveMap'
-import { api } from '../api/client'
-import type { Truck } from '../types'
+import { useTrucks } from '../presentation/hooks'
 
 /**
- * Page that renders the live map with trucks from the API (or mock data).
+ * Page that renders the live map with trucks from the application layer.
  */
 export function MapPage() {
-  const [trucks, setTrucks] = useState<Truck[]>([])
-
-  useEffect(() => {
-    const fetchTrucks = async () => {
-      try {
-        const res = await api.get<Truck[]>('/camiones')
-        setTrucks(Array.isArray(res.data) ? res.data : [])
-      } catch {
-        setTrucks((prev) =>
-          prev.length ? prev : [{ id: '1', placa: 'ABC-1234', activo: true, ubicacion: { lat: -0.3517, lng: -78.1223 } }]
-        )
-      }
-    }
-    fetchTrucks()
-    const interval = setInterval(fetchTrucks, 5000)
-    return () => clearInterval(interval)
-  }, [])
+  const { trucks } = useTrucks()
 
   return (
     <>

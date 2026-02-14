@@ -2,9 +2,9 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
-import '../models/camion.dart';
+import '../../core/entities/camion.dart';
 
-/// HTTP client for backend API. [getToken] is used for authenticated endpoints (mi-camion, ubicacion).
+/// HTTP client for backend API. Infrastructure detail used by CamionRepositoryImpl.
 class ApiClient {
   ApiClient({
     String baseUrl = 'http://10.0.2.2:8080/api',
@@ -24,7 +24,6 @@ class ApiClient {
     return headers;
   }
 
-  /// GET /camiones - list trucks with location for map markers (public).
   Future<List<Camion>> getCamiones() async {
     final response = await http.get(Uri.parse('$_baseUrl/camiones'));
     if (response.statusCode != 200) {
@@ -34,7 +33,6 @@ class ApiClient {
     return list.map((e) => Camion.fromJson(e as Map<String, dynamic>)).toList();
   }
 
-  /// GET /camiones/mi-camion - truck assigned to the logged-in driver (requires JWT).
   Future<Camion?> getMyCamion() async {
     final response = await http.get(
       Uri.parse('$_baseUrl/camiones/mi-camion'),
@@ -47,7 +45,6 @@ class ApiClient {
     return Camion.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
   }
 
-  /// PATCH /camiones/:id/ubicacion - update truck location (requires JWT).
   Future<void> updateCamionUbicacion(String camionId, double lat, double lng) async {
     final response = await http.patch(
       Uri.parse('$_baseUrl/camiones/$camionId/ubicacion'),

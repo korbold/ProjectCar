@@ -2,33 +2,31 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 
-import '../services/api_client.dart';
-import '../services/auth_service.dart';
+import '../../application/use_cases/camion/get_my_camion_use_case.dart';
+import '../../application/use_cases/camion/update_ubicacion_use_case.dart';
+import '../../core/repositories/camion_repository.dart';
+import '../providers/auth_provider.dart';
+import '../providers/repository_providers.dart';
 
 /// Driver screen: large button toggles EN SERVICIO (green) / FUERA DE SERVICIO (red).
 /// When in service, sends position to backend every 10 seconds via Geolocator stream.
-class DriverControlScreen extends StatefulWidget {
-  const DriverControlScreen({super.key, this.onLogout});
-
-  final VoidCallback? onLogout;
+class DriverControlScreen extends ConsumerStatefulWidget {
+  const DriverControlScreen({super.key});
 
   @override
-  State<DriverControlScreen> createState() => _DriverControlScreenState();
+  ConsumerState<DriverControlScreen> createState() => _DriverControlScreenState();
 }
 
-class _DriverControlScreenState extends State<DriverControlScreen> {
+class _DriverControlScreenState extends ConsumerState<DriverControlScreen> {
   bool _inService = false;
   StreamSubscription<Position>? _positionSubscription;
   Timer? _sendTimer;
-  late final ApiClient _api = ApiClient(
-    getToken: () async {
-      final auth = await AuthService.create();
-      return auth.getStoredToken();
-    },
-  );
+  CamionRepository? _camionRepo;
+  bool _camionIdLoaded = false;
   String? _camionId;
   String? _error;
 
@@ -61,6 +59,9 @@ class _DriverControlScreenState extends State<DriverControlScreen> {
 
     await _requestLocationPermission();
     if (!mounted) return;
+
+    final repo = _camionRepo;
+    if (repo == null) return;
 
     _inService = true;
     _error = null;
@@ -100,7 +101,7 @@ class _DriverControlScreenState extends State<DriverControlScreen> {
     _sendTimer = Timer.periodic(interval, (_) async {
       if (lastPosition == null || _camionId == null) return;
       try {
-        await _api.updateCamionUbicacion(
+        await UpdateUbicacionUseCase(repo).call(
           _camionId!,
           lastPosition!.latitude,
           lastPosition!.longitude,
@@ -111,12 +112,11 @@ class _DriverControlScreenState extends State<DriverControlScreen> {
       }
     });
 
-    // Send once immediately if we have a position (after a short delay for first fix)
     Future.delayed(const Duration(seconds: 2), () async {
       final pos = await Geolocator.getCurrentPosition();
       if (_camionId != null && mounted && _inService) {
         try {
-          await _api.updateCamionUbicacion(_camionId!, pos.latitude, pos.longitude);
+          await UpdateUbicacionUseCase(repo).call(_camionId!, pos.latitude, pos.longitude);
         } catch (_) {}
       }
     });
@@ -124,15 +124,12 @@ class _DriverControlScreenState extends State<DriverControlScreen> {
     setState(() {});
   }
 
-  @override
-  void initState() {
-    super.initState();
-    _loadDriverCamionId();
-  }
-
   Future<void> _loadDriverCamionId() async {
     try {
-      final camion = await _api.getMyCamion();
+      final repo = await ref.read(camionRepositoryProvider.future);
+      if (!mounted) return;
+      setState(() => _camionRepo = repo);
+      final camion = await GetMyCamionUseCase(repo).call();
       if (mounted) {
         setState(() => _camionId = camion?.id);
       }
@@ -150,17 +147,18 @@ class _DriverControlScreenState extends State<DriverControlScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_camionIdLoaded) {
+      _camionIdLoaded = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _loadDriverCamionId());
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Conductor'),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
-            onPressed: () async {
-              final auth = await AuthService.create();
-              await auth.logout();
-              widget.onLogout?.call();
-            },
+            onPressed: () => ref.read(authNotifierProvider.notifier).logout(),
           ),
         ],
       ),

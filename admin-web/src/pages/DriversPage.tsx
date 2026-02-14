@@ -1,26 +1,14 @@
-import { useState, useEffect } from 'react'
 import Typography from '@mui/material/Typography'
 import { DriversTable } from '../components/DriversTable'
-import { api } from '../api/client'
-import type { Driver } from '../types'
+import { useDrivers } from '../presentation/hooks'
+import type { Driver } from '../domain/entities'
 
 /**
  * Page that lists drivers using the DriversTable component.
+ * Data comes from the application layer via useDrivers.
  */
 export function DriversPage() {
-  const [drivers, setDrivers] = useState<Driver[]>([])
-
-  useEffect(() => {
-    api
-      .get<Driver[]>('/usuarios')
-      .then((res) => setDrivers(Array.isArray(res.data) ? res.data : []))
-      .catch(() => {
-        setDrivers([
-          { id: 1, email: 'admin@ibarra.local', rol: 'ADMIN' },
-          { id: 2, email: 'conductor@ejemplo.com', rol: 'CONDUCTOR' },
-        ])
-      })
-  }, [])
+  const { drivers } = useDrivers()
 
   const handleEdit = (driver: Driver) => {
     console.log('Editar', driver)

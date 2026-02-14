@@ -2,42 +2,36 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
-
-import '../services/auth_service.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 
-import '../models/camion.dart';
-import '../services/api_client.dart';
+import '../../application/use_cases/camion/get_camiones_use_case.dart';
+import '../../core/entities/camion.dart';
+import '../../infrastructure/http/api_client.dart';
+import '../providers/auth_provider.dart';
+import '../providers/repository_providers.dart';
 
 /// Full-screen map. Polls GET /camiones every 30 seconds and updates markers.
-class ClientMapScreen extends StatefulWidget {
-  const ClientMapScreen({super.key, this.onLogout});
-
-  final VoidCallback? onLogout;
+class ClientMapScreen extends ConsumerStatefulWidget {
+  const ClientMapScreen({super.key});
 
   @override
-  State<ClientMapScreen> createState() => _ClientMapScreenState();
+  ConsumerState<ClientMapScreen> createState() => _ClientMapScreenState();
 }
 
-class _ClientMapScreenState extends State<ClientMapScreen> {
+class _ClientMapScreenState extends ConsumerState<ClientMapScreen> {
   static const _ibarraCenter = LatLng(-0.3517, -78.1223);
 
-  final ApiClient _api = ApiClient();
+  bool _timerStarted = false;
   List<Camion> _camiones = [];
   Timer? _timer;
   bool _loading = true;
   String? _error;
 
-  @override
-  void initState() {
-    super.initState();
-    _fetchCamiones();
-    _timer = Timer.periodic(const Duration(seconds: 30), (_) => _fetchCamiones());
-  }
-
   Future<void> _fetchCamiones() async {
     try {
-      final list = await _api.getCamiones();
+      final repo = await ref.read(camionRepositoryProvider.future);
+      final list = await GetCamionesUseCase(repo).call();
       if (mounted) {
         setState(() {
           _camiones = list;
@@ -68,21 +62,23 @@ class _ClientMapScreenState extends State<ClientMapScreen> {
     super.dispose();
   }
 
-  Future<void> _logout() async {
-    final auth = await AuthService.create();
-    await auth.logout();
-    widget.onLogout?.call();
-  }
-
   @override
   Widget build(BuildContext context) {
+    if (!_timerStarted) {
+      _timerStarted = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _fetchCamiones();
+        _timer = Timer.periodic(const Duration(seconds: 30), (_) => _fetchCamiones());
+      });
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Mapa'),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
-            onPressed: _logout,
+            onPressed: () => ref.read(authNotifierProvider.notifier).logout(),
           ),
         ],
       ),

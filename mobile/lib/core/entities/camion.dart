@@ -1,4 +1,4 @@
-/// Truck model for API responses (GET /camiones). Ubicacion may be lat/lng or backend-specific.
+/// Truck entity. Ubicacion and ConductorRef are value objects. fromJson kept in entity per plan.
 class Camion {
   Camion({
     required this.id,

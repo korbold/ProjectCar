@@ -1,20 +1,5 @@
 /**
- * Truck location for map markers and API.
+ * Re-exports domain entities for backward compatibility.
+ * Prefer importing from '@/domain/entities' in new code.
  */
-export interface Truck {
-  id: string
-  placa: string
-  conductor?: { id: number; email: string }
-  ubicacion?: { lat: number; lng: number }
-  activo: boolean
-  ultimoReporte?: string
-}
-
-/**
- * Driver (usuario with CONDUCTOR role) for the drivers table.
- */
-export interface Driver {
-  id: number
-  email: string
-  rol: 'ADMIN' | 'CONDUCTOR'
-}
+export type { Truck, Driver } from '../domain/entities'

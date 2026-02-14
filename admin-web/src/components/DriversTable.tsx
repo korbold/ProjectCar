@@ -2,7 +2,7 @@ import { Pencil, Ban } from 'lucide-react'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import { DataGrid, type GridColDef } from '@mui/x-data-grid'
-import type { Driver } from '../types'
+import type { Driver } from '../domain/entities'
 
 export interface DriversTableProps {
   drivers: Driver[]

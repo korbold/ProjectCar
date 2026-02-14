@@ -1,12 +1,5 @@
-import axios from 'axios'
-
 /**
- * Axios instance configured to connect to the backend API.
- * In production build, set VITE_API_URL (e.g. in Docker build args).
+ * @deprecated Prefer using application use cases and repositories.
+ * Re-exports the HTTP client for legacy or direct API usage.
  */
-export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:8080/api',
-  headers: {
-    'Content-Type': 'application/json',
-  },
-})
+export { apiClient as api } from '../infrastructure/http/api-client'

@@ -1,18 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../services/auth_service.dart';
+import '../providers/auth_provider.dart';
 
-/// Simple login form. On submit, runs mock login and invokes [onLoggedIn] so the app can switch to the role screen.
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key, required this.onLoggedIn});
-
-  final VoidCallback onLoggedIn;
+/// Simple login form. On submit, calls auth notifier login; app navigates by watching auth state.
+class LoginScreen extends ConsumerStatefulWidget {
+  const LoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _loading = false;
@@ -23,17 +22,15 @@ class _LoginScreenState extends State<LoginScreen> {
       _loading = true;
       _error = null;
     });
-    try {
-      final auth = await AuthService.create();
-      await auth.login(
-        _emailController.text.trim(),
-        _passwordController.text,
-      );
-      if (mounted) widget.onLoggedIn();
-    } catch (e) {
-      if (mounted) {
+    await ref.read(authNotifierProvider.notifier).login(
+          _emailController.text.trim(),
+          _passwordController.text,
+        );
+    if (mounted) {
+      final auth = ref.read(authNotifierProvider);
+      if (auth.hasError) {
         setState(() {
-          _error = e.toString();
+          _error = auth.error.toString();
           _loading = false;
         });
       }
@@ -82,7 +79,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 24),
                 FilledButton(
                   onPressed: _loading ? null : _submit,
-                  child: _loading ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Iniciar sesión'),
+                  child: _loading
+                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Text('Iniciar sesión'),
                 ),
               ],
             ),
