@@ -24,7 +24,7 @@ docker-compose up -d
 
 This starts:
 
-- **PostgreSQL + PostGIS** (`db`) on port `5432`
+- **PostgreSQL + PostGIS** (`db`) on port **5433** (host) to avoid conflict with a local Postgres on 5432
   - Database: `ibarra_db`
   - User: `postgres`
   - Password: `postgres`
@@ -44,3 +44,5 @@ docker-compose down
 ```
 
 Data is persisted in the `postgres_data` volume.
+
+**Backend:** Start the database first (`docker-compose up -d`), then run the backend from `backend/` with `mvn spring-boot:run`. It connects to `localhost:5433/ibarra_db` with user `postgres` / password `postgres`.

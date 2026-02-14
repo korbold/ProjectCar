@@ -6,6 +6,13 @@ import com.ibarra.abastecida.application.usecase.UpdateUbicacionUseCase;
 import com.ibarra.abastecida.domain.entity.Camion;
 import com.ibarra.abastecida.dto.CamionResponse;
 import com.ibarra.abastecida.dto.UpdateUbicacionRequest;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -22,12 +29,15 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/camiones")
 @RequiredArgsConstructor
+@Tag(name = "Camiones", description = "Truck listing and location updates")
 public class CamionController {
 
     private final ListCamionesUseCase listCamionesUseCase;
     private final GetMyCamionUseCase getMyCamionUseCase;
     private final UpdateUbicacionUseCase updateUbicacionUseCase;
 
+    @Operation(summary = "List all trucks", description = "Returns all trucks with location (for map). Public, no auth.")
+    @ApiResponse(responseCode = "200", description = "List of trucks", content = @Content(schema = @Schema(implementation = CamionResponse.class)))
     @GetMapping
     public List<CamionResponse> list() {
         return listCamionesUseCase.execute().stream()
@@ -35,9 +45,12 @@ public class CamionController {
                 .toList();
     }
 
-    /**
-     * Returns the truck assigned to the currently authenticated driver (JWT).
-     */
+    @Operation(summary = "My truck", description = "Returns the truck assigned to the authenticated driver (JWT required).", security = @SecurityRequirement(name = "bearerAuth"))
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Driver's truck", content = @Content(schema = @Schema(implementation = CamionResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Not authenticated"),
+            @ApiResponse(responseCode = "404", description = "No truck assigned")
+    })
     @GetMapping("/mi-camion")
     public ResponseEntity<CamionResponse> getMiCamion(Authentication auth) {
         if (auth == null || !auth.isAuthenticated()) {
@@ -49,6 +62,12 @@ public class CamionController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    @Operation(summary = "Update truck location", description = "Updates the truck's GPS location (driver only).", security = @SecurityRequirement(name = "bearerAuth"))
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Updated"),
+            @ApiResponse(responseCode = "401", description = "Not authenticated"),
+            @ApiResponse(responseCode = "404", description = "Truck not found")
+    })
     @PatchMapping("/{id}/ubicacion")
     public ResponseEntity<Void> updateUbicacion(
             @PathVariable UUID id,

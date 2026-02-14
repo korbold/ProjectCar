@@ -34,6 +34,7 @@ public class SecurityConfig {
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/auth/**").permitAll()
+                        .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/camiones").permitAll()
                         .requestMatchers("/api/camiones/mi-camion", "/api/camiones/*/ubicacion").authenticated()
                         .anyRequest().authenticated())
