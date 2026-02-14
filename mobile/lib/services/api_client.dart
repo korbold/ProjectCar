@@ -4,13 +4,27 @@ import 'package:http/http.dart' as http;
 
 import '../models/camion.dart';
 
-/// HTTP client for backend API. Base URL should point to host (e.g. 10.0.2.2:8080 on Android emulator).
+/// HTTP client for backend API. [getToken] is used for authenticated endpoints (mi-camion, ubicacion).
 class ApiClient {
-  ApiClient({String baseUrl = 'http://10.0.2.2:8080/api'}) : _baseUrl = baseUrl;
+  ApiClient({
+    String baseUrl = 'http://10.0.2.2:8080/api',
+    Future<String?> Function()? getToken,
+  })  : _baseUrl = baseUrl,
+        _getToken = getToken ?? (() async => null);
 
   final String _baseUrl;
+  final Future<String?> Function() _getToken;
 
-  /// GET /camiones - list trucks with location for map markers.
+  Future<Map<String, String>> _authHeaders() async {
+    final token = await _getToken();
+    final headers = <String, String>{'Content-Type': 'application/json'};
+    if (token != null && token.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $token';
+    }
+    return headers;
+  }
+
+  /// GET /camiones - list trucks with location for map markers (public).
   Future<List<Camion>> getCamiones() async {
     final response = await http.get(Uri.parse('$_baseUrl/camiones'));
     if (response.statusCode != 200) {
@@ -20,11 +34,24 @@ class ApiClient {
     return list.map((e) => Camion.fromJson(e as Map<String, dynamic>)).toList();
   }
 
-  /// PATCH /camiones/:id/ubicacion - update truck location (driver in service).
+  /// GET /camiones/mi-camion - truck assigned to the logged-in driver (requires JWT).
+  Future<Camion?> getMyCamion() async {
+    final response = await http.get(
+      Uri.parse('$_baseUrl/camiones/mi-camion'),
+      headers: await _authHeaders(),
+    );
+    if (response.statusCode == 404) return null;
+    if (response.statusCode != 200) {
+      throw ApiException(response.statusCode, response.body);
+    }
+    return Camion.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+  }
+
+  /// PATCH /camiones/:id/ubicacion - update truck location (requires JWT).
   Future<void> updateCamionUbicacion(String camionId, double lat, double lng) async {
     final response = await http.patch(
       Uri.parse('$_baseUrl/camiones/$camionId/ubicacion'),
-      headers: {'Content-Type': 'application/json'},
+      headers: await _authHeaders(),
       body: jsonEncode({'lat': lat, 'lng': lng}),
     );
     if (response.statusCode != 200 && response.statusCode != 204) {

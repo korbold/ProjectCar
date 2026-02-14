@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -36,4 +37,9 @@ public interface CamionRepository extends JpaRepository<Camion, UUID> {
             @Param("longitude") double longitude,
             @Param("radiusMeters") double radiusMeters
     );
+
+    /**
+     * Returns the truck assigned to the driver with the given email.
+     */
+    Optional<Camion> findByConductor_Email(String email);
 }

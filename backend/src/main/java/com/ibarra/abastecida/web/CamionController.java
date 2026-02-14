@@ -11,6 +11,7 @@ import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.PrecisionModel;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -34,6 +35,21 @@ public class CamionController {
         return camionRepository.findAll().stream()
                 .map(this::toResponse)
                 .toList();
+    }
+
+    /**
+     * Returns the truck assigned to the currently authenticated driver (JWT).
+     */
+    @GetMapping("/mi-camion")
+    public ResponseEntity<CamionResponse> getMiCamion(Authentication auth) {
+        if (auth == null || !auth.isAuthenticated()) {
+            return ResponseEntity.status(401).build();
+        }
+        String emailConductor = auth.getName();
+        return camionRepository.findByConductor_Email(emailConductor)
+                .map(this::toResponse)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 
     @PatchMapping("/{id}/ubicacion")

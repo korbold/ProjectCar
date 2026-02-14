@@ -12,20 +12,19 @@ export function MapPage() {
   const [trucks, setTrucks] = useState<Truck[]>([])
 
   useEffect(() => {
-    api
-      .get<Truck[]>('/camiones')
-      .then((res) => setTrucks(Array.isArray(res.data) ? res.data : []))
-      .catch(() => {
-        // Mock data when backend is not available
-        setTrucks([
-          {
-            id: '1',
-            placa: 'ABC-1234',
-            activo: true,
-            ubicacion: { lat: -0.3517, lng: -78.1223 },
-          },
-        ])
-      })
+    const fetchTrucks = async () => {
+      try {
+        const res = await api.get<Truck[]>('/camiones')
+        setTrucks(Array.isArray(res.data) ? res.data : [])
+      } catch {
+        setTrucks((prev) =>
+          prev.length ? prev : [{ id: '1', placa: 'ABC-1234', activo: true, ubicacion: { lat: -0.3517, lng: -78.1223 } }]
+        )
+      }
+    }
+    fetchTrucks()
+    const interval = setInterval(fetchTrucks, 5000)
+    return () => clearInterval(interval)
   }, [])
 
   return (

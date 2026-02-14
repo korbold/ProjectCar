@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../services/api_client.dart';
 import '../services/auth_service.dart';
@@ -21,19 +22,25 @@ class _DriverControlScreenState extends State<DriverControlScreen> {
   bool _inService = false;
   StreamSubscription<Position>? _positionSubscription;
   Timer? _sendTimer;
-  final ApiClient _api = ApiClient();
-  String? _camionId; // TODO: from login / profile; for now we skip send if no id
+  late final ApiClient _api = ApiClient(
+    getToken: () async {
+      final auth = await AuthService.create();
+      return auth.getStoredToken();
+    },
+  );
+  String? _camionId;
   String? _error;
 
   Future<void> _requestLocationPermission() async {
-    var status = await Geolocator.checkPermission();
-    if (status == LocationPermission.denied) {
-      status = await Geolocator.requestPermission();
+    var status = await Permission.locationWhenInUse.request();
+    if (!status.isGranted) {
+      if (mounted) setState(() => _error = 'Location permission denied');
+      return;
     }
-    if (status == LocationPermission.deniedForever || status == LocationPermission.denied) {
-      if (mounted) {
-        setState(() => _error = 'Location permission denied');
-      }
+    await Permission.locationAlways.request();
+    final geoStatus = await Geolocator.checkPermission();
+    if (geoStatus == LocationPermission.denied || geoStatus == LocationPermission.deniedForever) {
+      if (mounted) setState(() => _error = 'Location permission denied');
       return;
     }
   }
@@ -100,8 +107,14 @@ class _DriverControlScreenState extends State<DriverControlScreen> {
   }
 
   Future<void> _loadDriverCamionId() async {
-    // Mock: no stored camion id yet. Backend could return it at login. For now leave null so we don't 404.
-    setState(() => _camionId = null);
+    try {
+      final camion = await _api.getMyCamion();
+      if (mounted) {
+        setState(() => _camionId = camion?.id);
+      }
+    } catch (_) {
+      if (mounted) setState(() => _camionId = null);
+    }
   }
 
   @override
